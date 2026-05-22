@@ -8,7 +8,37 @@ export interface GenerateLoopOptions {
   today: Date
 }
 
-// Implemented in Phase 3
-export function generateLoop(_options: GenerateLoopOptions): Question[] {
-  return []
+const MEDIAN_MINUTES = 25
+const MIN_QUESTIONS = 2
+const MAX_QUESTIONS = 6
+const MAX_PER_PATTERN = 2
+
+export function generateLoop(options: GenerateLoopOptions): Question[] {
+  const { profile, availableQuestions, revisionQuestions, recovery } = options
+
+  const timeBasedMax = Math.floor(profile.dailyTimeMinutes / MEDIAN_MINUTES)
+  const normalMax = Math.max(MIN_QUESTIONS, Math.min(MAX_QUESTIONS, timeBasedMax))
+  const cap = recovery.isRecovery
+    ? Math.min(recovery.maxQuestions, normalMax)
+    : normalMax
+
+  // Revisions go first (Phase 5 will populate these)
+  const selected: Question[] = [...revisionQuestions].slice(0, Math.floor(cap / 2))
+
+  // Sort candidates by importance DESC
+  const sorted = [...availableQuestions].sort(
+    (a, b) => b.importanceScore - a.importanceScore,
+  )
+
+  // Pick new questions with pattern diversity enforcement
+  const patternCount: Record<string, number> = {}
+  for (const q of sorted) {
+    if (selected.length >= cap) break
+    const count = patternCount[q.primaryPattern] ?? 0
+    if (count >= MAX_PER_PATTERN) continue
+    selected.push(q)
+    patternCount[q.primaryPattern] = count + 1
+  }
+
+  return selected
 }
