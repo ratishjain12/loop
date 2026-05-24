@@ -13,7 +13,10 @@ export async function getLastLoopDate(clerkUserId: string): Promise<Date | null>
     where: eq(dailyLoops.clerkUserId, clerkUserId),
     orderBy: [desc(dailyLoops.date)],
   })
-  return loop ? new Date(loop.date) : null
+  if (!loop) return null
+  // Parse as local midnight to match detectRecovery's setHours(0,0,0,0) normalization
+  const [year, month, day] = loop.date.split('-').map(Number)
+  return new Date(year, month - 1, day)
 }
 
 export async function insertDailyLoop(data: {

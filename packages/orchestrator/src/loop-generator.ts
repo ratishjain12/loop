@@ -30,8 +30,11 @@ export function generateLoop(options: GenerateLoopOptions): Question[] {
     (a, b) => b.importanceScore - a.importanceScore,
   )
 
-  // Pick new questions with pattern diversity enforcement
+  // Seed pattern counts from pre-filled revision questions
   const patternCount: Record<string, number> = {}
+  for (const q of selected) {
+    patternCount[q.primaryPattern] = (patternCount[q.primaryPattern] ?? 0) + 1
+  }
   for (const q of sorted) {
     if (selected.length >= cap) break
     const count = patternCount[q.primaryPattern] ?? 0
