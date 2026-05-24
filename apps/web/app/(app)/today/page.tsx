@@ -39,9 +39,12 @@ export default async function TodayPage() {
   // ── Return existing loop if already generated today ──
   const existing = await getTodaysLoop(userId, today)
   if (existing) {
-    const rows = existing.questionIds.length
-      ? await db.select().from(questionsTable).where(inArray(questionsTable.id, existing.questionIds))
-      : []
+    const [rows, existingDueRevisions] = await Promise.all([
+      existing.questionIds.length
+        ? db.select().from(questionsTable).where(inArray(questionsTable.id, existing.questionIds))
+        : Promise.resolve([]),
+      getDueRevisions(userId, today),
+    ])
 
     const questions = existing.questionIds
       .map((id) => rows.find((q) => q.id === id))
@@ -49,6 +52,8 @@ export default async function TodayPage() {
       .filter((q): q is typeof q & { difficulty: Difficulty } =>
         (VALID_DIFFICULTIES as readonly string[]).includes(q.difficulty),
       )
+
+    const existingRevisionIds = existingDueRevisions.map((r) => r.id)
 
     return (
       <TodayLoop
@@ -62,7 +67,7 @@ export default async function TodayPage() {
           estimatedMinutes: q.estimatedMinutes,
           importanceScore: q.importanceScore,
         }))}
-        revisionIds={[]}
+        revisionIds={existingRevisionIds}
         recovery={null}
         formattedDate={formatDate(now)}
       />
