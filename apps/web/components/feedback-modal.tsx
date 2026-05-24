@@ -30,11 +30,18 @@ interface FeedbackModalProps {
   open: boolean
   questionTitle: string
   onSubmit: (feedback: FeedbackType) => Promise<void>
+  onClose: () => void
 }
 
-export function FeedbackModal({ open, questionTitle, onSubmit }: FeedbackModalProps) {
+export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: FeedbackModalProps) {
   const [selected, setSelected] = useState<FeedbackType | null>(null)
   const [submitting, setSubmitting] = useState(false)
+
+  function handleClose() {
+    if (submitting) return
+    setSelected(null)
+    onClose()
+  }
 
   async function handleSubmit() {
     if (!selected) return
@@ -48,13 +55,8 @@ export function FeedbackModal({ open, questionTitle, onSubmit }: FeedbackModalPr
   }
 
   return (
-    <Dialog open={open}>
-      <DialogContent
-        className="sm:max-w-md"
-        showCloseButton={false}
-        onInteractOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
-      >
+    <Dialog open={open} onOpenChange={(open) => { if (!open) handleClose() }}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold leading-snug">
             How did it go?

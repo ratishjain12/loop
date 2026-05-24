@@ -175,6 +175,7 @@ export function QuestionCard({
         open={showFeedbackModal}
         questionTitle={question.title}
         onSubmit={handleFeedbackSubmit}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </>
   )
