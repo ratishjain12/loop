@@ -1,6 +1,5 @@
 export type Difficulty = 'easy' | 'medium' | 'hard'
 export type FeedbackType = 'easy' | 'needed_hint' | 'struggled' | 'couldnt_solve' | 'revisit_later'
-export type RevisionFrequency = 'daily' | 'alternate' | 'weekend' | 'custom'
 
 export interface Question {
   id: string
@@ -17,8 +16,8 @@ export interface UserProfile {
   clerkUserId: string
   level: 'beginner' | 'intermediate' | 'advanced'
   dailyTimeMinutes: number
-  revisionFrequency: RevisionFrequency
-  customDays: number[] | null
+  dailyRevisionCap: number
+  prepMonths: number
   focusPattern: string | null
 }
 

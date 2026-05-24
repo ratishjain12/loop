@@ -51,6 +51,7 @@ export interface DueRevision {
 export async function getDueRevisions(
   clerkUserId: string,
   todayStr: string,
+  limit = 2,
 ): Promise<DueRevision[]> {
   const rows = await db.execute<{
     id: string
@@ -82,7 +83,7 @@ export async function getDueRevisions(
     ) latest
     WHERE latest.next_review_at <= ${todayStr}
     ORDER BY latest.next_review_at ASC
-    LIMIT 2
+    LIMIT ${limit}
   `)
 
   return rows.map((r) => ({

@@ -1,4 +1,4 @@
-import type { FeedbackType, RevisionFrequency } from './types'
+import type { FeedbackType } from './types'
 
 const REVIEW_OFFSETS: Record<FeedbackType, number> = {
   easy: 7,
@@ -13,24 +13,4 @@ export function getNextReviewDate(feedback: FeedbackType, today: Date): Date {
   const next = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   next.setDate(next.getDate() + REVIEW_OFFSETS[feedback])
   return next
-}
-
-export function shouldIncludeRevisionToday(
-  revisionFrequency: RevisionFrequency,
-  customDays: number[] | null,
-  today: Date,
-): boolean {
-  const dow = today.getDay() // 0=Sun … 6=Sat
-  switch (revisionFrequency) {
-    case 'daily':
-      return true
-    case 'alternate': {
-      const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24))
-      return daysSinceEpoch % 2 === 0
-    }
-    case 'weekend':
-      return dow === 0 || dow === 6
-    case 'custom':
-      return customDays?.includes(dow) ?? false
-  }
 }

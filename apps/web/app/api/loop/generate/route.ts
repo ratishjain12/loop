@@ -4,7 +4,7 @@ import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
 import { getDueRevisions } from '@loop/db/queries/logs'
-import { detectRecovery, generateLoop, shouldIncludeRevisionToday } from '@loop/orchestrator'
+import { detectRecovery, generateLoop } from '@loop/orchestrator'
 import { eq, inArray } from 'drizzle-orm'
 import { formatLocalDate } from '@/lib/date'
 
@@ -46,25 +46,18 @@ export async function GET() {
   const candidates = await getAvailableQuestions(profile.level, attemptedIds)
 
   const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
-  const VALID_FREQUENCIES = ['daily', 'alternate', 'weekend', 'custom'] as const
   const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'] as const
 
   type Level = typeof VALID_LEVELS[number]
-  type Frequency = typeof VALID_FREQUENCIES[number]
   type Difficulty = typeof VALID_DIFFICULTIES[number]
 
   const level: Level = (VALID_LEVELS as readonly string[]).includes(profile.level)
     ? profile.level as Level
     : 'intermediate'
 
-  const revisionFrequency: Frequency = (VALID_FREQUENCIES as readonly string[]).includes(profile.revisionFrequency)
-    ? profile.revisionFrequency as Frequency
-    : 'daily'
-
-  // Fetch due revisions if frequency allows
+  // Always fetch due revisions — the cap controls how many appear, not which days
   const now = new Date()
-  const includeRevisions = shouldIncludeRevisionToday(revisionFrequency, profile.customDays ?? null, now)
-  const dueRevisions = includeRevisions ? await getDueRevisions(userId, today) : []
+  const dueRevisions = await getDueRevisions(userId, today, profile.dailyRevisionCap ?? 2)
 
   // Generate the loop
   const selected = generateLoop({
@@ -72,8 +65,8 @@ export async function GET() {
       clerkUserId: profile.clerkUserId,
       level,
       dailyTimeMinutes: profile.dailyTimeMinutes,
-      revisionFrequency,
-      customDays: profile.customDays,
+      dailyRevisionCap: profile.dailyRevisionCap ?? 2,
+      prepMonths: profile.prepMonths,
       focusPattern: profile.focusPattern,
     },
     availableQuestions: candidates
