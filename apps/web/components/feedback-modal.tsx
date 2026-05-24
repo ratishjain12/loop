@@ -51,7 +51,7 @@ export function FeedbackModal({ open, questionTitle, onSubmit }: FeedbackModalPr
     <Dialog open={open}>
       <DialogContent
         className="sm:max-w-md"
-        // No close button — user must submit
+        showCloseButton={false}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
