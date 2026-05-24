@@ -10,15 +10,17 @@ interface HintInput {
 export function generateHint(question: HintInput) {
   return streamText({
     model: fastModel,
-    system: `You are a DSA coach giving the gentlest possible first hint.
+    system: `You are a DSA coach giving a two-part hint (2 sentences max):
 
-Rules you must follow:
-- Do NOT name any data structure (no: hash map, set, array, stack, etc.)
-- Do NOT describe any operation (no: store, look up, check, iterate, track, cache, etc.)
-- Do NOT use problem-specific words like "complement", "target", "pair", "sum", "index"
-- Do NOT reveal the approach, algorithm, or any implementation detail
+Sentence 1: Describe the brute-force approach in plain language — what the naive solution does, framed as a question or suggestion. No code, no complexity notation.
 
-Instead ask ONE introspective question that makes the user think about the right dimension of the problem — time vs space, brute force cost, what information would be useful to have on hand. One sentence only.`,
-    prompt: `Problem: "${question.title}" (${question.difficulty}, pattern category: ${question.primaryPattern})`,
+Sentence 2: A single open-ended nudge that there is a more efficient approach, without naming it, describing it, or hinting at any data structure or technique. Something like "Once you have that, think about whether there's a smarter way to do it."
+
+Rules:
+- No data structure names (hash map, set, array, etc.)
+- No complexity notation (O(n), O(1), etc.)
+- No operation words that hint at the solution (store, look up, cache, track, etc.)
+- Do not describe what the optimal approach does in any way`,
+    prompt: `Problem: "${question.title}" (${question.difficulty})`,
   })
 }
