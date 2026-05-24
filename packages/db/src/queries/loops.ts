@@ -1,0 +1,40 @@
+import { db } from '../client'
+import { dailyLoops } from '../schema'
+import { eq, and, desc } from 'drizzle-orm'
+
+export async function getTodaysLoop(clerkUserId: string, today: string) {
+  return db.query.dailyLoops.findFirst({
+    where: and(eq(dailyLoops.clerkUserId, clerkUserId), eq(dailyLoops.date, today)),
+  })
+}
+
+export async function getLastLoopDate(clerkUserId: string): Promise<Date | null> {
+  const loop = await db.query.dailyLoops.findFirst({
+    where: eq(dailyLoops.clerkUserId, clerkUserId),
+    orderBy: [desc(dailyLoops.date)],
+  })
+  if (!loop) return null
+  // Parse as local midnight to match detectRecovery's setHours(0,0,0,0) normalization
+  const [year, month, day] = loop.date.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+export async function insertDailyLoop(data: {
+  clerkUserId: string
+  date: string
+  questionIds: string[]
+}) {
+  await db
+    .insert(dailyLoops)
+    .values({
+      clerkUserId: data.clerkUserId,
+      date: data.date,
+      questionIds: data.questionIds,
+      completedIds: [],
+      status: 'pending',
+    })
+    .onConflictDoNothing()
+  return db.query.dailyLoops.findFirst({
+    where: and(eq(dailyLoops.clerkUserId, data.clerkUserId), eq(dailyLoops.date, data.date)),
+  })
+}

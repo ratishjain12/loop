@@ -1,4 +1,4 @@
-import { pgTable, text, integer, boolean, uuid, timestamp, date } from 'drizzle-orm/pg-core'
+import { pgTable, text, integer, boolean, uuid, timestamp, date, uniqueIndex } from 'drizzle-orm/pg-core'
 
 export const userProfiles = pgTable('user_profiles', {
   clerkUserId: text('clerk_user_id').primaryKey(),
@@ -43,4 +43,6 @@ export const dailyLoops = pgTable('daily_loops', {
   aiRankingUsed: boolean('ai_ranking_used').default(false),
   status: text('status').default('pending'),
   createdAt: timestamp('created_at').defaultNow(),
-})
+}, (table) => [
+  uniqueIndex('daily_loops_user_date_unique').on(table.clerkUserId, table.date),
+])

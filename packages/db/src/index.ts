@@ -1,2 +1,4 @@
 export { db } from './client'
 export * from './schema'
+export * from './queries/loops'
+export * from './queries/questions'
