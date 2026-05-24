@@ -15,11 +15,22 @@ export function getNextReviewDate(feedback: FeedbackType, today: Date): Date {
   return next
 }
 
-// Implemented in Phase 5
 export function shouldIncludeRevisionToday(
-  _revisionFrequency: RevisionFrequency,
-  _customDays: number[] | null,
-  _today: Date,
+  revisionFrequency: RevisionFrequency,
+  customDays: number[] | null,
+  today: Date,
 ): boolean {
-  return false
+  const dow = today.getDay() // 0=Sun … 6=Sat
+  switch (revisionFrequency) {
+    case 'daily':
+      return true
+    case 'alternate': {
+      const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24))
+      return daysSinceEpoch % 2 === 0
+    }
+    case 'weekend':
+      return dow === 0 || dow === 6
+    case 'custom':
+      return customDays?.includes(dow) ?? false
+  }
 }

@@ -21,6 +21,7 @@ interface Question {
 interface QuestionCardProps {
   question: Question
   isCompleted: boolean
+  isRevision?: boolean
   completedFeedback?: FeedbackType | null
   onLoopComplete?: (loopComplete: boolean) => void
 }
@@ -49,6 +50,7 @@ function formatPattern(pattern: string): string {
 export function QuestionCard({
   question,
   isCompleted: serverCompleted,
+  isRevision = false,
   completedFeedback,
   onLoopComplete,
 }: QuestionCardProps) {
@@ -121,6 +123,13 @@ export function QuestionCard({
 
           {/* Meta row */}
           <div className="flex items-center gap-2 flex-wrap">
+            {isRevision && (
+              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium"
+                style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.1)' }}>
+                Revision
+              </span>
+            )}
+
             <span
               className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium capitalize"
               style={{ color: color.text, background: color.bg }}
