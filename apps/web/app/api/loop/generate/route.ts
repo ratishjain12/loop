@@ -97,5 +97,9 @@ export async function GET() {
     questionIds: selected.map((q) => q.id),
   })
 
+  if (!loop) {
+    return NextResponse.json({ error: 'Failed to create loop' }, { status: 500 })
+  }
+
   return NextResponse.json({ loop, questions: selected, recovery })
 }

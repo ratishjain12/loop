@@ -98,7 +98,7 @@ export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: Feedba
         </div>
 
         {error && (
-          <p className="text-sm text-destructive mt-1">{error}</p>
+          <p role="alert" className="text-sm text-destructive mt-1">{error}</p>
         )}
 
         <Button
