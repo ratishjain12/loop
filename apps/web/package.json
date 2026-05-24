@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ai-sdk/react": "^3.0.193",
     "@clerk/nextjs": "^7.3.7",
     "@loop/ai": "workspace:*",
     "@loop/db": "workspace:*",

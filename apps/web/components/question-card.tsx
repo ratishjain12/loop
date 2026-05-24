@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { ExternalLink, Clock, CheckCircle2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
+import { ExternalLink, Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useCompletion } from '@ai-sdk/react'
 import { FeedbackModal } from '@/components/feedback-modal'
 import type { FeedbackType } from '@loop/orchestrator'
 
@@ -56,13 +56,15 @@ export function QuestionCard({
 }: QuestionCardProps) {
   const color = DIFFICULTY_COLORS[question.difficulty]
 
-  // Optimistic local state: once completed in this session, stay completed
   const [hasOpened, setHasOpened] = useState(false)
   const [showFeedbackModal, setShowFeedbackModal] = useState(false)
   const [localCompleted, setLocalCompleted] = useState(false)
   const [submittedFeedback, setSubmittedFeedback] = useState<FeedbackType | null>(
     completedFeedback ?? null,
   )
+
+  const { completion: hint, complete: fetchHint, isLoading: hintLoading, error: hintError } =
+    useCompletion({ api: '/api/ai/hint' })
 
   const isCompleted = serverCompleted || localCompleted
 
@@ -180,8 +182,36 @@ export function QuestionCard({
         </div>
       </div>
 
+      {/* Hint section */}
+      {!isCompleted && (
+        <div className="px-5 pb-3">
+          {!hint && !hintLoading && (
+            <button
+              type="button"
+              onClick={() => fetchHint('', { body: { questionId: question.id } })}
+              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Give me a hint
+            </button>
+          )}
+          {hintLoading && (
+            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <Loader2 size={11} className="animate-spin" />
+              Thinking…
+            </span>
+          )}
+          {hint && (
+            <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
+          )}
+          {hintError && !hint && (
+            <p className="text-[11px] text-muted-foreground">Hint unavailable right now.</p>
+          )}
+        </div>
+      )}
+
       <FeedbackModal
         open={showFeedbackModal}
+        questionId={question.id}
         questionTitle={question.title}
         onSubmit={handleFeedbackSubmit}
         onClose={() => setShowFeedbackModal(false)}

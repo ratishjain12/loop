@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useCompletion } from '@ai-sdk/react'
 import type { FeedbackType } from '@loop/orchestrator'
 
 interface FeedbackOption {
@@ -29,20 +30,29 @@ const OPTIONS: FeedbackOption[] = [
 
 interface FeedbackModalProps {
   open: boolean
+  questionId: string
   questionTitle: string
   onSubmit: (feedback: FeedbackType) => Promise<void>
   onClose: () => void
 }
 
-export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: FeedbackModalProps) {
+export function FeedbackModal({ open, questionId, questionTitle, onSubmit, onClose }: FeedbackModalProps) {
   const [selected, setSelected] = useState<FeedbackType | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const {
+    completion: explanation,
+    complete: fetchExplanation,
+    isLoading: explanationLoading,
+  } = useCompletion({ api: '/api/ai/explain' })
 
   function handleClose() {
     if (submitting) return
     setSelected(null)
     setError(null)
+    setSubmitted(false)
     onClose()
   }
 
@@ -53,6 +63,7 @@ export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: Feedba
     try {
       await onSubmit(selected)
       setSelected(null)
+      setSubmitted(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
@@ -101,20 +112,51 @@ export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: Feedba
           <p role="alert" className="text-sm text-destructive mt-1">{error}</p>
         )}
 
-        <Button
-          className="mt-2 w-full"
-          disabled={!selected || submitting}
-          onClick={handleSubmit}
-        >
-          {submitting ? (
-            <>
-              <Loader2 size={14} className="mr-2 animate-spin" />
-              Saving…
-            </>
-          ) : (
-            'Submit'
-          )}
-        </Button>
+        {submitted ? (
+          <div className="mt-2 flex flex-col gap-3">
+            <p className="text-sm text-muted-foreground">Feedback recorded.</p>
+
+            {!explanation && !explanationLoading && (
+              <button
+                type="button"
+                onClick={() => fetchExplanation('', { body: { questionId } })}
+                className="text-sm text-left text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Understand the pattern →
+              </button>
+            )}
+
+            {explanationLoading && (
+              <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Loader2 size={13} className="animate-spin" />
+                Loading explanation…
+              </span>
+            )}
+
+            {explanation && (
+              <p className="text-sm text-muted-foreground leading-relaxed">{explanation}</p>
+            )}
+
+            <Button variant="outline" className="w-full" onClick={handleClose}>
+              Close
+            </Button>
+          </div>
+        ) : (
+          <Button
+            className="mt-2 w-full"
+            disabled={!selected || submitting}
+            onClick={handleSubmit}
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={14} className="mr-2 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Submit'
+            )}
+          </Button>
+        )}
       </DialogContent>
     </Dialog>
   )
