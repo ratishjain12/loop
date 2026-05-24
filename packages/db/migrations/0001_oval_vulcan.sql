@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "daily_loops_user_date_unique" ON "daily_loops" USING btree ("clerk_user_id","date");

@@ -21,7 +21,7 @@ export async function insertDailyLoop(data: {
   date: string
   questionIds: string[]
 }) {
-  const [loop] = await db
+  await db
     .insert(dailyLoops)
     .values({
       clerkUserId: data.clerkUserId,
@@ -30,6 +30,8 @@ export async function insertDailyLoop(data: {
       completedIds: [],
       status: 'pending',
     })
-    .returning()
-  return loop
+    .onConflictDoNothing()
+  return db.query.dailyLoops.findFirst({
+    where: and(eq(dailyLoops.clerkUserId, data.clerkUserId), eq(dailyLoops.date, data.date)),
+  })
 }
