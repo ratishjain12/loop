@@ -5,12 +5,13 @@ import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/querie
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
 import { detectRecovery, generateLoop } from '@loop/orchestrator'
 import { eq, inArray } from 'drizzle-orm'
+import { formatLocalDate } from '@/lib/date'
 
 export async function GET() {
   const { userId } = await auth()
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatLocalDate(new Date())
 
   // Return existing loop for today if already generated
   const existing = await getTodaysLoop(userId, today)

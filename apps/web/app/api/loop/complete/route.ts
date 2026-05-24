@@ -1,9 +1,10 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { getTodaysLoop, markQuestionComplete } from '@loop/db/queries/loops'
-import { insertQuestionLog, getLatestQuestionLog } from '@loop/db/queries/logs'
+import { insertQuestionLog } from '@loop/db/queries/logs'
 import { getNextReviewDate } from '@loop/orchestrator'
 import type { FeedbackType } from '@loop/orchestrator'
+import { formatLocalDate } from '@/lib/date'
 
 const VALID_FEEDBACK = [
   'easy',
@@ -39,40 +40,32 @@ export async function POST(req: Request) {
   }
 
   const typedFeedback = feedback as FeedbackType
-  const today = new Date().toISOString().split('T')[0]
+  const now = new Date()
+  const today = formatLocalDate(now)
 
   const loop = await getTodaysLoop(userId, today)
   if (!loop) {
-    return NextResponse.json({ error: "No loop found for today" }, { status: 404 })
+    return NextResponse.json({ error: 'No loop found for today' }, { status: 404 })
   }
 
   if (!loop.questionIds.includes(questionId)) {
-    return NextResponse.json({ error: 'Question not in today\'s loop' }, { status: 400 })
+    return NextResponse.json({ error: "Question not in today's loop" }, { status: 400 })
   }
 
-  // Idempotency: if already logged, skip insert and return current state
-  const existingLog = await getLatestQuestionLog(userId, questionId)
-  const alreadyCompleted = loop.completedIds?.includes(questionId)
+  // markQuestionComplete is atomic — the SQL guard (NOT ANY) ensures only the
+  // first concurrent request updates the row; wasFirstCompletion gates the log insert.
+  const { loopComplete, wasFirstCompletion } = await markQuestionComplete(userId, today, questionId)
 
-  if (alreadyCompleted && existingLog) {
-    const { loopComplete } = await markQuestionComplete(userId, today, questionId)
-    return NextResponse.json({
-      nextReviewAt: existingLog.nextReviewAt,
-      loopComplete,
+  const nextReviewAt = formatLocalDate(getNextReviewDate(typedFeedback, now))
+
+  if (wasFirstCompletion) {
+    await insertQuestionLog({
+      clerkUserId: userId,
+      questionId,
+      feedback: typedFeedback,
+      nextReviewAt,
     })
   }
-
-  const nextReviewDate = getNextReviewDate(typedFeedback, new Date())
-  const nextReviewAt = nextReviewDate.toISOString().split('T')[0]
-
-  await insertQuestionLog({
-    clerkUserId: userId,
-    questionId,
-    feedback: typedFeedback,
-    nextReviewAt,
-  })
-
-  const { loopComplete } = await markQuestionComplete(userId, today, questionId)
 
   return NextResponse.json({ nextReviewAt, loopComplete })
 }

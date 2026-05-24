@@ -43,8 +43,10 @@ export async function markQuestionComplete(
   clerkUserId: string,
   date: string,
   questionId: string,
-): Promise<{ loopComplete: boolean }> {
-  // Atomic: append only if not already present, set status = 'complete' when all done
+): Promise<{ loopComplete: boolean; wasFirstCompletion: boolean }> {
+  // Atomic: append only if not already present, set status = 'complete' when all done.
+  // The NOT ANY guard means the UPDATE affects a row only on the first completion —
+  // wasFirstCompletion tells callers whether to proceed with side effects (e.g. log insert).
   const [updated] = await db
     .update(dailyLoops)
     .set({
@@ -69,8 +71,8 @@ export async function markQuestionComplete(
     const loop = await db.query.dailyLoops.findFirst({
       where: and(eq(dailyLoops.clerkUserId, clerkUserId), eq(dailyLoops.date, date)),
     })
-    return { loopComplete: loop?.status === 'complete' }
+    return { loopComplete: (loop?.status ?? '') === 'complete', wasFirstCompletion: false }
   }
 
-  return { loopComplete: updated.status === 'complete' }
+  return { loopComplete: updated.status === 'complete', wasFirstCompletion: true }
 }

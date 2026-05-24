@@ -8,6 +8,7 @@ import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/querie
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
 import { detectRecovery, generateLoop } from '@loop/orchestrator'
 import { TodayLoop } from '@/components/today-loop'
+import { formatLocalDate } from '@/lib/date'
 
 export const metadata: Metadata = { title: "Today's Loop | Loop" }
 
@@ -31,7 +32,7 @@ export default async function TodayPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = formatLocalDate(new Date())
 
   // ── Try to return an existing loop for today ─────────
   const existing = await getTodaysLoop(userId, today)

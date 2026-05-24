@@ -37,21 +37,26 @@ interface FeedbackModalProps {
 export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: FeedbackModalProps) {
   const [selected, setSelected] = useState<FeedbackType | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   function handleClose() {
     if (submitting) return
     setSelected(null)
+    setError(null)
     onClose()
   }
 
   async function handleSubmit() {
     if (!selected) return
     setSubmitting(true)
+    setError(null)
     try {
       await onSubmit(selected)
+      setSelected(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Something went wrong. Please try again.')
     } finally {
       setSubmitting(false)
-      setSelected(null)
     }
   }
 
@@ -91,6 +96,10 @@ export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: Feedba
             </button>
           ))}
         </div>
+
+        {error && (
+          <p className="text-sm text-destructive mt-1">{error}</p>
+        )}
 
         <Button
           className="mt-2 w-full"
