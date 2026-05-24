@@ -15,6 +15,13 @@
       "when": 1779623634849,
       "tag": "0001_oval_vulcan",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779632243722,
+      "tag": "0002_conscious_the_initiative",
+      "breakpoints": true
     }
   ]
 }

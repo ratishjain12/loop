@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { ExternalLink, Clock, CheckCircle2, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useCompletion } from '@ai-sdk/react'
 import { FeedbackModal } from '@/components/feedback-modal'
 import type { FeedbackType } from '@loop/orchestrator'
 
@@ -63,10 +62,41 @@ export function QuestionCard({
     completedFeedback ?? null,
   )
 
-  const { completion: hint, complete: fetchHint, isLoading: hintLoading, error: hintError } =
-    useCompletion({ api: '/api/ai/hint', streamProtocol: 'text' })
+  const [hint, setHint] = useState('')
+  const [hintLoading, setHintLoading] = useState(false)
+  const [hintError, setHintError] = useState<string | null>(null)
 
   const isCompleted = serverCompleted || localCompleted
+
+  async function fetchHint() {
+    setHintLoading(true)
+    setHintError(null)
+    try {
+      const res = await fetch('/api/ai/hint', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId: question.id }),
+      })
+      if (res.status === 429) {
+        setHintError("You've used all 5 hints for today. Come back tomorrow.")
+        return
+      }
+      if (!res.ok || !res.body) throw new Error()
+      const reader = res.body.getReader()
+      const decoder = new TextDecoder()
+      let text = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        text += decoder.decode(value, { stream: true })
+        setHint(text)
+      }
+    } catch {
+      setHintError('Hint unavailable right now.')
+    } finally {
+      setHintLoading(false)
+    }
+  }
 
   function handleOpen() {
     window.open(question.link, '_blank', 'noopener,noreferrer')
@@ -176,7 +206,7 @@ export function QuestionCard({
             {!hint && !hintLoading && (
               <button
                 type="button"
-                onClick={() => fetchHint('', { body: { questionId: question.id } })}
+                onClick={fetchHint}
                 className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
               >
                 Give me a hint
@@ -193,8 +223,8 @@ export function QuestionCard({
                 {hint}
               </p>
             )}
-            {hintError && !hint && (
-              <p className="text-[11px] text-muted-foreground">Hint unavailable right now.</p>
+            {hintError && (
+              <p className="text-[11px] text-muted-foreground">{hintError}</p>
             )}
           </div>
         )}

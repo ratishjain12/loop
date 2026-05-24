@@ -34,6 +34,16 @@ export const userQuestionLog = pgTable('user_question_log', {
   nextReviewAt: date('next_review_at').notNull(),
 })
 
+export const userHints = pgTable('user_hints', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  clerkUserId: text('clerk_user_id').notNull(),
+  questionId: uuid('question_id').notNull().references(() => questions.id),
+  hintText: text('hint_text').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('user_hints_user_question_unique').on(table.clerkUserId, table.questionId),
+])
+
 export const dailyLoops = pgTable('daily_loops', {
   id: uuid('id').primaryKey().defaultRandom(),
   clerkUserId: text('clerk_user_id').notNull(),
