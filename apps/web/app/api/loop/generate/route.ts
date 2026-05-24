@@ -43,26 +43,44 @@ export async function GET() {
   const attemptedIds = await getAttemptedQuestionIds(userId)
   const candidates = await getAvailableQuestions(profile.level, attemptedIds)
 
+  const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'] as const
+  const VALID_FREQUENCIES = ['daily', 'alternate', 'weekend', 'custom'] as const
+  const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'] as const
+
+  type Level = typeof VALID_LEVELS[number]
+  type Frequency = typeof VALID_FREQUENCIES[number]
+  type Difficulty = typeof VALID_DIFFICULTIES[number]
+
+  const level: Level = (VALID_LEVELS as readonly string[]).includes(profile.level)
+    ? profile.level as Level
+    : 'intermediate'
+
+  const revisionFrequency: Frequency = (VALID_FREQUENCIES as readonly string[]).includes(profile.revisionFrequency)
+    ? profile.revisionFrequency as Frequency
+    : 'daily'
+
   // Generate the loop
   const selected = generateLoop({
     profile: {
       clerkUserId: profile.clerkUserId,
-      level: profile.level as 'beginner' | 'intermediate' | 'advanced',
+      level,
       dailyTimeMinutes: profile.dailyTimeMinutes,
-      revisionFrequency: profile.revisionFrequency as 'daily' | 'alternate' | 'weekend' | 'custom',
+      revisionFrequency,
       customDays: profile.customDays,
       focusPattern: profile.focusPattern,
     },
-    availableQuestions: candidates.map((q) => ({
-      id: q.id,
-      title: q.title,
-      link: q.link,
-      difficulty: q.difficulty as 'easy' | 'medium' | 'hard',
-      primaryPattern: q.primaryPattern,
-      secondaryPatterns: q.secondaryPatterns ?? [],
-      importanceScore: q.importanceScore,
-      estimatedMinutes: q.estimatedMinutes,
-    })),
+    availableQuestions: candidates
+      .filter((q) => (VALID_DIFFICULTIES as readonly string[]).includes(q.difficulty))
+      .map((q) => ({
+        id: q.id,
+        title: q.title,
+        link: q.link,
+        difficulty: q.difficulty as Difficulty,
+        primaryPattern: q.primaryPattern,
+        secondaryPatterns: q.secondaryPatterns ?? [],
+        importanceScore: q.importanceScore,
+        estimatedMinutes: q.estimatedMinutes,
+      })),
     revisionQuestions: [],
     recovery,
     today: new Date(),
