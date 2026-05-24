@@ -64,7 +64,7 @@ export function QuestionCard({
   )
 
   const { completion: hint, complete: fetchHint, isLoading: hintLoading, error: hintError } =
-    useCompletion({ api: '/api/ai/hint' })
+    useCompletion({ api: '/api/ai/hint', streamProtocol: 'text' })
 
   const isCompleted = serverCompleted || localCompleted
 
@@ -98,116 +98,107 @@ export function QuestionCard({
 
   return (
     <>
+      {/* Outer wrapper is the visual card — hint lives inside it below the main row */}
       <div
         className={cn(
-          'group relative flex items-start gap-4 rounded-lg border bg-card px-5 py-4 transition-opacity',
+          'group relative rounded-lg border bg-card transition-opacity',
           isCompleted && 'opacity-50',
         )}
         style={{ borderLeftWidth: '3px', borderLeftColor: color.border }}
       >
-        {/* Completion check */}
-        {isCompleted && (
-          <CheckCircle2
-            size={15}
-            className="absolute right-4 top-4 shrink-0"
-            style={{ color: color.border }}
-          />
-        )}
+        {/* Main content row */}
+        <div className="relative flex items-start gap-4 px-5 py-4">
+          {isCompleted && (
+            <CheckCircle2
+              size={15}
+              className="absolute right-4 top-4 shrink-0"
+              style={{ color: color.border }}
+            />
+          )}
 
-        <div className="flex flex-col gap-2.5 flex-1 min-w-0">
-          {/* Title */}
-          <p className={cn(
-            'text-sm font-medium leading-snug',
-            isCompleted ? 'line-through text-muted-foreground' : 'text-foreground',
-          )}>
-            {question.title}
-          </p>
+          <div className="flex flex-col gap-2.5 flex-1 min-w-0">
+            <p className={cn(
+              'text-sm font-medium leading-snug',
+              isCompleted ? 'line-through text-muted-foreground' : 'text-foreground',
+            )}>
+              {question.title}
+            </p>
 
-          {/* Meta row */}
-          <div className="flex items-center gap-2 flex-wrap">
-            {isRevision && (
-              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium"
-                style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.1)' }}>
-                Revision
+            <div className="flex items-center gap-2 flex-wrap">
+              {isRevision && (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium"
+                  style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.1)' }}>
+                  Revision
+                </span>
+              )}
+              <span
+                className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium capitalize"
+                style={{ color: color.text, background: color.bg }}
+              >
+                {question.difficulty}
               </span>
-            )}
+              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-mono bg-muted text-muted-foreground">
+                {formatPattern(question.primaryPattern)}
+              </span>
+              <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                <Clock size={11} />
+                {question.estimatedMinutes}m
+              </span>
+              {isCompleted && submittedFeedback && (
+                <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">
+                  {FEEDBACK_LABELS[submittedFeedback]}
+                </span>
+              )}
+            </div>
+          </div>
 
-            <span
-              className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium capitalize"
-              style={{ color: color.text, background: color.bg }}
+          <div className="flex items-center gap-2 shrink-0">
+            {!isCompleted && hasOpened && (
+              <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleMarkDone}>
+                Mark Done
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+              onClick={handleOpen}
             >
-              {question.difficulty}
-            </span>
-
-            <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-mono bg-muted text-muted-foreground">
-              {formatPattern(question.primaryPattern)}
-            </span>
-
-            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Clock size={11} />
-              {question.estimatedMinutes}m
-            </span>
-
-            {/* Feedback badge shown after completion */}
-            {isCompleted && submittedFeedback && (
-              <span className="inline-flex items-center rounded px-1.5 py-0.5 text-[11px] font-medium bg-muted text-muted-foreground">
-                {FEEDBACK_LABELS[submittedFeedback]}
-              </span>
-            )}
+              Open
+              <ExternalLink size={12} />
+            </Button>
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 shrink-0">
-          {!isCompleted && hasOpened && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={handleMarkDone}
-            >
-              Mark Done
-            </Button>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            onClick={handleOpen}
-          >
-            Open
-            <ExternalLink size={12} />
-          </Button>
-        </div>
+        {/* Hint section — inside the card, below the main row */}
+        {!isCompleted && (
+          <div className="px-5 pb-4 border-t border-transparent">
+            {!hint && !hintLoading && (
+              <button
+                type="button"
+                onClick={() => fetchHint('', { body: { questionId: question.id } })}
+                className="text-[11px] text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+              >
+                Give me a hint
+              </button>
+            )}
+            {hintLoading && (
+              <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <Loader2 size={11} className="animate-spin" />
+                Thinking…
+              </span>
+            )}
+            {hint && (
+              <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-muted pl-3">
+                {hint}
+              </p>
+            )}
+            {hintError && !hint && (
+              <p className="text-[11px] text-muted-foreground">Hint unavailable right now.</p>
+            )}
+          </div>
+        )}
       </div>
-
-      {/* Hint section */}
-      {!isCompleted && (
-        <div className="px-5 pb-3">
-          {!hint && !hintLoading && (
-            <button
-              type="button"
-              onClick={() => fetchHint('', { body: { questionId: question.id } })}
-              className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Give me a hint
-            </button>
-          )}
-          {hintLoading && (
-            <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-              <Loader2 size={11} className="animate-spin" />
-              Thinking…
-            </span>
-          )}
-          {hint && (
-            <p className="text-xs text-muted-foreground leading-relaxed">{hint}</p>
-          )}
-          {hintError && !hint && (
-            <p className="text-[11px] text-muted-foreground">Hint unavailable right now.</p>
-          )}
-        </div>
-      )}
 
       <FeedbackModal
         open={showFeedbackModal}

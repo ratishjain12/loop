@@ -21,5 +21,5 @@ export async function POST(req: Request) {
     secondaryPatterns: question.secondaryPatterns ?? [],
   })
 
-  return result.toDataStreamResponse()
+  return result.toTextStreamResponse()
 }

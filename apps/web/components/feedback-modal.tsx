@@ -46,7 +46,7 @@ export function FeedbackModal({ open, questionId, questionTitle, onSubmit, onClo
     completion: explanation,
     complete: fetchExplanation,
     isLoading: explanationLoading,
-  } = useCompletion({ api: '/api/ai/explain' })
+  } = useCompletion({ api: '/api/ai/explain', streamProtocol: 'text' })
 
   function handleClose() {
     if (submitting) return
