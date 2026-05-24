@@ -122,7 +122,8 @@ export function QuestionCard({
     const data = (await res.json()) as { nextReviewAt: string; loopComplete: boolean }
     setLocalCompleted(true)
     setSubmittedFeedback(feedback)
-    setShowFeedbackModal(false)
+    // Keep modal open so user sees "Feedback recorded + Understand the pattern →"
+    // Modal closes when user clicks the Close button inside it
     onLoopComplete?.(data.loopComplete)
   }
 
@@ -137,14 +138,7 @@ export function QuestionCard({
         style={{ borderLeftWidth: '3px', borderLeftColor: color.border }}
       >
         {/* Main content row — pb-2 when hint section follows, pb-4 when completed (no hint) */}
-        <div className={cn('relative flex items-start gap-4 px-5 pt-4', isCompleted ? 'pb-4' : 'pb-2')}>
-          {isCompleted && (
-            <CheckCircle2
-              size={15}
-              className="absolute right-4 top-4 shrink-0"
-              style={{ color: color.border }}
-            />
-          )}
+        <div className={cn('flex items-start gap-4 px-5 pt-4', isCompleted ? 'pb-4' : 'pb-2')}>
 
           <div className="flex flex-col gap-2.5 flex-1 min-w-0">
             <p className={cn(
@@ -197,6 +191,9 @@ export function QuestionCard({
               Open
               <ExternalLink size={12} />
             </Button>
+            {isCompleted && (
+              <CheckCircle2 size={15} className="shrink-0" style={{ color: color.border }} />
+            )}
           </div>
         </div>
 
