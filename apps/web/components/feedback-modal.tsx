@@ -5,6 +5,7 @@ import { Loader2 } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -61,7 +62,7 @@ export function FeedbackModal({ open, questionTitle, onSubmit, onClose }: Feedba
           <DialogTitle className="text-base font-semibold leading-snug">
             How did it go?
           </DialogTitle>
-          <p className="text-sm text-muted-foreground truncate">{questionTitle}</p>
+          <DialogDescription className="truncate">{questionTitle}</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-2 mt-1">
