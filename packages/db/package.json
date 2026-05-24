@@ -6,7 +6,8 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
     "./queries/loops": "./src/queries/loops.ts",
-    "./queries/questions": "./src/queries/questions.ts"
+    "./queries/questions": "./src/queries/questions.ts",
+    "./queries/logs": "./src/queries/logs.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",

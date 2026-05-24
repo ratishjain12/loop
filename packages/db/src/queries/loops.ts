@@ -1,6 +1,6 @@
 import { db } from '../client'
 import { dailyLoops } from '../schema'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 
 export async function getTodaysLoop(clerkUserId: string, today: string) {
   return db.query.dailyLoops.findFirst({
@@ -37,4 +37,40 @@ export async function insertDailyLoop(data: {
   return db.query.dailyLoops.findFirst({
     where: and(eq(dailyLoops.clerkUserId, data.clerkUserId), eq(dailyLoops.date, data.date)),
   })
+}
+
+export async function markQuestionComplete(
+  clerkUserId: string,
+  date: string,
+  questionId: string,
+): Promise<{ loopComplete: boolean }> {
+  // Atomic: append only if not already present, set status = 'complete' when all done
+  const [updated] = await db
+    .update(dailyLoops)
+    .set({
+      completedIds: sql`array_append(completed_ids, ${questionId}::uuid)`,
+      status: sql`CASE
+        WHEN cardinality(array_append(completed_ids, ${questionId}::uuid)) >= cardinality(question_ids)
+        THEN 'complete'
+        ELSE status
+      END`,
+    })
+    .where(
+      and(
+        eq(dailyLoops.clerkUserId, clerkUserId),
+        eq(dailyLoops.date, date),
+        sql`NOT (${questionId}::uuid = ANY(completed_ids))`,
+      ),
+    )
+    .returning()
+
+  if (!updated) {
+    // Already completed — return current loop status
+    const loop = await db.query.dailyLoops.findFirst({
+      where: and(eq(dailyLoops.clerkUserId, clerkUserId), eq(dailyLoops.date, date)),
+    })
+    return { loopComplete: loop?.status === 'complete' }
+  }
+
+  return { loopComplete: updated.status === 'complete' }
 }
