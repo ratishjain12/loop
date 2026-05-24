@@ -106,8 +106,8 @@ export function QuestionCard({
         )}
         style={{ borderLeftWidth: '3px', borderLeftColor: color.border }}
       >
-        {/* Main content row */}
-        <div className="relative flex items-start gap-4 px-5 py-4">
+        {/* Main content row — pb-2 when hint section follows, pb-4 when completed (no hint) */}
+        <div className={cn('relative flex items-start gap-4 px-5 pt-4', isCompleted ? 'pb-4' : 'pb-2')}>
           {isCompleted && (
             <CheckCircle2
               size={15}
@@ -170,9 +170,9 @@ export function QuestionCard({
           </div>
         </div>
 
-        {/* Hint section — inside the card, below the main row */}
+        {/* Hint section — sits flush below the main row inside the card */}
         {!isCompleted && (
-          <div className="px-5 pb-4 border-t border-transparent">
+          <div className="px-5 pb-3">
             {!hint && !hintLoading && (
               <button
                 type="button"
@@ -189,7 +189,7 @@ export function QuestionCard({
               </span>
             )}
             {hint && (
-              <p className="text-xs text-muted-foreground leading-relaxed border-l-2 border-muted pl-3">
+              <p className="text-[11px] text-muted-foreground leading-relaxed pl-3 border-l border-muted-foreground/20">
                 {hint}
               </p>
             )}
