@@ -6,7 +6,8 @@ import { Trophy } from 'lucide-react'
 import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
-import { detectRecovery, generateLoop } from '@loop/orchestrator'
+import { getDueRevisions } from '@loop/db/queries/logs'
+import { detectRecovery, generateLoop, shouldIncludeRevisionToday } from '@loop/orchestrator'
 import { TodayLoop } from '@/components/today-loop'
 import { formatLocalDate } from '@/lib/date'
 
@@ -32,14 +33,18 @@ export default async function TodayPage() {
   const { userId } = await auth()
   if (!userId) redirect('/sign-in')
 
-  const today = formatLocalDate(new Date())
+  const now   = new Date()
+  const today = formatLocalDate(now)
 
-  // ── Try to return an existing loop for today ─────────
+  // ── Return existing loop if already generated today ──
   const existing = await getTodaysLoop(userId, today)
   if (existing) {
-    const rows = existing.questionIds.length
-      ? await db.select().from(questionsTable).where(inArray(questionsTable.id, existing.questionIds))
-      : []
+    const [rows, existingDueRevisions] = await Promise.all([
+      existing.questionIds.length
+        ? db.select().from(questionsTable).where(inArray(questionsTable.id, existing.questionIds))
+        : Promise.resolve([]),
+      getDueRevisions(userId, today),
+    ])
 
     const questions = existing.questionIds
       .map((id) => rows.find((q) => q.id === id))
@@ -47,6 +52,8 @@ export default async function TodayPage() {
       .filter((q): q is typeof q & { difficulty: Difficulty } =>
         (VALID_DIFFICULTIES as readonly string[]).includes(q.difficulty),
       )
+
+    const existingRevisionIds = existingDueRevisions.map((r) => r.id)
 
     return (
       <TodayLoop
@@ -60,8 +67,9 @@ export default async function TodayPage() {
           estimatedMinutes: q.estimatedMinutes,
           importanceScore: q.importanceScore,
         }))}
+        revisionIds={existingRevisionIds}
         recovery={null}
-        formattedDate={formatDate(new Date())}
+        formattedDate={formatDate(now)}
       />
     )
   }
@@ -75,12 +83,9 @@ export default async function TodayPage() {
   const lastLoopDate = await getLastLoopDate(userId)
   const recovery = detectRecovery(
     lastLoopDate,
-    new Date(),
+    now,
     profile.adaptiveUntil ? new Date(profile.adaptiveUntil) : null,
   )
-
-  const attemptedIds = await getAttemptedQuestionIds(userId)
-  const candidates   = await getAvailableQuestions(profile.level, attemptedIds)
 
   const level: Level = (VALID_LEVELS as readonly string[]).includes(profile.level)
     ? (profile.level as Level)
@@ -91,6 +96,17 @@ export default async function TodayPage() {
   )
     ? (profile.revisionFrequency as Frequency)
     : 'daily'
+
+  // ── Pull due revisions if frequency allows ───────────
+  const includeRevisions = shouldIncludeRevisionToday(
+    revisionFrequency,
+    profile.customDays ?? null,
+    now,
+  )
+  const dueRevisions = includeRevisions ? await getDueRevisions(userId, today) : []
+
+  const attemptedIds = await getAttemptedQuestionIds(userId)
+  const candidates   = await getAvailableQuestions(profile.level, attemptedIds)
 
   const selected = generateLoop({
     profile: {
@@ -113,9 +129,18 @@ export default async function TodayPage() {
         importanceScore: q.importanceScore,
         estimatedMinutes: q.estimatedMinutes,
       })),
-    revisionQuestions: [],
+    revisionQuestions: dueRevisions.map((r) => ({
+      id: r.id,
+      title: r.title,
+      link: r.link,
+      difficulty: r.difficulty as Difficulty,
+      primaryPattern: r.primaryPattern,
+      secondaryPatterns: r.secondaryPatterns,
+      importanceScore: r.importanceScore,
+      estimatedMinutes: r.estimatedMinutes,
+    })),
     recovery,
-    today: new Date(),
+    today: now,
   })
 
   // ── All questions exhausted ──────────────────────────
@@ -143,6 +168,8 @@ export default async function TodayPage() {
 
   if (!loop) redirect('/today')
 
+  const revisionIds = dueRevisions.map((r) => r.id)
+
   return (
     <TodayLoop
       loop={loop}
@@ -155,8 +182,9 @@ export default async function TodayPage() {
         estimatedMinutes: q.estimatedMinutes,
         importanceScore: q.importanceScore,
       }))}
+      revisionIds={revisionIds}
       recovery={recovery}
-      formattedDate={formatDate(new Date())}
+      formattedDate={formatDate(now)}
     />
   )
 }

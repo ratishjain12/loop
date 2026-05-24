@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server'
 import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
-import { detectRecovery, generateLoop } from '@loop/orchestrator'
+import { getDueRevisions } from '@loop/db/queries/logs'
+import { detectRecovery, generateLoop, shouldIncludeRevisionToday } from '@loop/orchestrator'
 import { eq, inArray } from 'drizzle-orm'
 import { formatLocalDate } from '@/lib/date'
 
@@ -60,6 +61,11 @@ export async function GET() {
     ? profile.revisionFrequency as Frequency
     : 'daily'
 
+  // Fetch due revisions if frequency allows
+  const now = new Date()
+  const includeRevisions = shouldIncludeRevisionToday(revisionFrequency, profile.customDays ?? null, now)
+  const dueRevisions = includeRevisions ? await getDueRevisions(userId, today) : []
+
   // Generate the loop
   const selected = generateLoop({
     profile: {
@@ -82,9 +88,18 @@ export async function GET() {
         importanceScore: q.importanceScore,
         estimatedMinutes: q.estimatedMinutes,
       })),
-    revisionQuestions: [],
+    revisionQuestions: dueRevisions.map((r) => ({
+      id: r.id,
+      title: r.title,
+      link: r.link,
+      difficulty: r.difficulty as Difficulty,
+      primaryPattern: r.primaryPattern,
+      secondaryPatterns: r.secondaryPatterns,
+      importanceScore: r.importanceScore,
+      estimatedMinutes: r.estimatedMinutes,
+    })),
     recovery,
-    today: new Date(),
+    today: now,
   })
 
   if (selected.length === 0) {
@@ -101,5 +116,6 @@ export async function GET() {
     return NextResponse.json({ error: 'Failed to create loop' }, { status: 500 })
   }
 
-  return NextResponse.json({ loop, questions: selected, recovery })
+  const revisionIds = dueRevisions.map((r) => r.id)
+  return NextResponse.json({ loop, questions: selected, recovery, revisionIds })
 }

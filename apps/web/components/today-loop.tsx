@@ -33,11 +33,12 @@ interface RecoveryConfig {
 interface TodayLoopProps {
   loop: Loop
   questions: Question[]
+  revisionIds: string[]
   recovery: RecoveryConfig | null
   formattedDate: string
 }
 
-export function TodayLoop({ loop, questions, recovery, formattedDate }: TodayLoopProps) {
+export function TodayLoop({ loop, questions, revisionIds, recovery, formattedDate }: TodayLoopProps) {
   const [completedIds, setCompletedIds] = useState<Set<string>>(
     new Set(loop.completedIds ?? []),
   )
@@ -122,6 +123,7 @@ export function TodayLoop({ loop, questions, recovery, formattedDate }: TodayLoo
             key={q.id}
             question={q}
             isCompleted={completedIds.has(q.id)}
+            isRevision={revisionIds.includes(q.id)}
             onLoopComplete={(loopComplete) => handleQuestionComplete(q.id, loopComplete)}
           />
         ))}
