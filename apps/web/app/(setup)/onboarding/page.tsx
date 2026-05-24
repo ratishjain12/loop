@@ -5,25 +5,13 @@ import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 
 type Level = 'beginner' | 'intermediate' | 'advanced'
-type Frequency = 'daily' | 'alternate' | 'weekend' | 'custom'
 
 interface FormState {
   level: Level | null
   dailyTimeMinutes: number | null
   prepMonths: number | null
-  revisionFrequency: Frequency | null
-  customDays: number[]
+  dailyRevisionCap: number | null
 }
-
-const DAYS = [
-  { label: 'M', value: 1 },
-  { label: 'T', value: 2 },
-  { label: 'W', value: 3 },
-  { label: 'T', value: 4 },
-  { label: 'F', value: 5 },
-  { label: 'S', value: 6 },
-  { label: 'S', value: 0 },
-]
 
 const LEVEL_OPTIONS: { value: Level; label: string; description: string }[] = [
   { value: 'beginner', label: 'Beginner', description: 'New to DSA or returning after a break' },
@@ -40,21 +28,13 @@ const PREP_OPTIONS: { value: number; label: string }[] = [
   { value: 12, label: '12 months' },
 ]
 
-const FREQUENCY_OPTIONS: { value: Frequency; label: string; description: string }[] = [
-  { value: 'daily', label: 'Daily', description: 'Revise something every single day' },
-  { value: 'alternate', label: 'Alternate Days', description: 'Every other day keeps it manageable' },
-  { value: 'weekend', label: 'Weekends', description: 'Deep-dive on Saturdays and Sundays' },
-  { value: 'custom', label: 'Custom', description: 'Pick specific days of the week' },
+const REVISION_CAP_OPTIONS: { value: number; label: string; description: string }[] = [
+  { value: 1, label: '1 per session', description: 'Light touch — one revision question mixed in' },
+  { value: 2, label: '2 per session', description: 'Balanced — keeps review moving without overload' },
+  { value: 3, label: '3 per session', description: 'Intensive — great when cramming or catching up' },
 ]
 
 const STEP_LABELS = ['Level', 'Time', 'Timeline', 'Revision', 'Review']
-
-const FREQUENCY_LABELS: Record<Frequency, string> = {
-  daily: 'Daily',
-  alternate: 'Alternate Days',
-  weekend: 'Weekends',
-  custom: 'Custom days',
-}
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -64,29 +44,15 @@ export default function OnboardingPage() {
     level: null,
     dailyTimeMinutes: null,
     prepMonths: null,
-    revisionFrequency: null,
-    customDays: [],
+    dailyRevisionCap: null,
   })
 
   const canAdvance = () => {
     if (step === 1) return form.level !== null
     if (step === 2) return form.dailyTimeMinutes !== null
     if (step === 3) return form.prepMonths !== null
-    if (step === 4) {
-      if (form.revisionFrequency === null) return false
-      if (form.revisionFrequency === 'custom') return form.customDays.length > 0
-      return true
-    }
+    if (step === 4) return form.dailyRevisionCap !== null
     return true
-  }
-
-  const toggleCustomDay = (day: number) => {
-    setForm((f) => ({
-      ...f,
-      customDays: f.customDays.includes(day)
-        ? f.customDays.filter((d) => d !== day)
-        : [...f.customDays, day],
-    }))
   }
 
   const handleSubmit = async () => {
@@ -99,8 +65,7 @@ export default function OnboardingPage() {
           level: form.level,
           dailyTimeMinutes: form.dailyTimeMinutes,
           prepMonths: form.prepMonths,
-          revisionFrequency: form.revisionFrequency,
-          customDays: form.revisionFrequency === 'custom' ? form.customDays : null,
+          dailyRevisionCap: form.dailyRevisionCap,
         }),
       })
       router.push('/today')
@@ -226,52 +191,30 @@ export default function OnboardingPage() {
         </div>
       )}
 
-      {/* Step 4 — Revision Frequency */}
+      {/* Step 4 — Daily Revision Cap */}
       {step === 4 && (
         <div className="flex flex-col flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">How often do you revise?</h1>
-          <p className="text-sm text-neutral-500 mb-8">Revision questions blend into your loop on these days.</p>
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">How many revisions per session?</h1>
+          <p className="text-sm text-neutral-500 mb-8">Due revisions appear every day — this controls how many blend into your loop at once.</p>
           <div className="flex flex-col gap-3">
-            {FREQUENCY_OPTIONS.map((opt) => (
+            {REVISION_CAP_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setForm((f) => ({ ...f, revisionFrequency: opt.value }))}
+                onClick={() => setForm((f) => ({ ...f, dailyRevisionCap: opt.value }))}
                 className={cn(
                   'text-left px-5 py-4 rounded-lg border transition-all',
-                  form.revisionFrequency === opt.value
+                  form.dailyRevisionCap === opt.value
                     ? 'border-neutral-900 bg-primary text-primary-foreground'
                     : 'border-border hover:border-muted-foreground hover:bg-accent',
                 )}
               >
                 <div className="font-medium text-sm">{opt.label}</div>
-                <div className={cn('text-xs mt-0.5', form.revisionFrequency === opt.value ? 'text-neutral-400' : 'text-neutral-500')}>
+                <div className={cn('text-xs mt-0.5', form.dailyRevisionCap === opt.value ? 'text-neutral-400' : 'text-neutral-500')}>
                   {opt.description}
                 </div>
               </button>
             ))}
           </div>
-
-          {form.revisionFrequency === 'custom' && (
-            <div className="mt-5">
-              <p className="text-xs text-neutral-500 mb-3">Select the days you want to revise</p>
-              <div className="flex gap-2">
-                {DAYS.map((day, i) => (
-                  <button
-                    key={`${day.label}-${i}`}
-                    onClick={() => toggleCustomDay(day.value)}
-                    className={cn(
-                      'w-9 h-9 rounded-full text-xs font-medium border transition-all',
-                      form.customDays.includes(day.value)
-                        ? 'border-neutral-900 bg-primary text-primary-foreground'
-                        : 'border-border hover:border-muted-foreground text-muted-foreground',
-                    )}
-                  >
-                    {day.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -296,14 +239,9 @@ export default function OnboardingPage() {
               </span>
             </div>
             <div className="flex items-center justify-between px-5 py-4">
-              <span className="text-sm text-neutral-500">Revision</span>
+              <span className="text-sm text-neutral-500">Revisions per session</span>
               <span className="text-sm font-medium">
-                {form.revisionFrequency ? FREQUENCY_LABELS[form.revisionFrequency] : '—'}
-                {form.revisionFrequency === 'custom' && form.customDays.length > 0 && (
-                  <span className="text-neutral-400 font-normal ml-1">
-                    ({form.customDays.length} days)
-                  </span>
-                )}
+                {form.dailyRevisionCap ?? '—'}
               </span>
             </div>
           </div>

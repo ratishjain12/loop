@@ -7,7 +7,7 @@ import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
 import { getDueRevisions } from '@loop/db/queries/logs'
-import { detectRecovery, generateLoop, shouldIncludeRevisionToday } from '@loop/orchestrator'
+import { detectRecovery, generateLoop } from '@loop/orchestrator'
 import { TodayLoop } from '@/components/today-loop'
 import { formatLocalDate } from '@/lib/date'
 
@@ -22,11 +22,9 @@ function formatDate(date: Date): string {
 }
 
 const VALID_LEVELS       = ['beginner', 'intermediate', 'advanced'] as const
-const VALID_FREQUENCIES  = ['daily', 'alternate', 'weekend', 'custom'] as const
 const VALID_DIFFICULTIES = ['easy', 'medium', 'hard'] as const
 
 type Level      = typeof VALID_LEVELS[number]
-type Frequency  = typeof VALID_FREQUENCIES[number]
 type Difficulty = typeof VALID_DIFFICULTIES[number]
 
 export default async function TodayPage() {
@@ -43,7 +41,7 @@ export default async function TodayPage() {
       existing.questionIds.length
         ? db.select().from(questionsTable).where(inArray(questionsTable.id, existing.questionIds))
         : Promise.resolve([]),
-      getDueRevisions(userId, today),
+      getDueRevisions(userId, today, 3),
     ])
 
     const questions = existing.questionIds
@@ -91,19 +89,8 @@ export default async function TodayPage() {
     ? (profile.level as Level)
     : 'intermediate'
 
-  const revisionFrequency: Frequency = (VALID_FREQUENCIES as readonly string[]).includes(
-    profile.revisionFrequency,
-  )
-    ? (profile.revisionFrequency as Frequency)
-    : 'daily'
-
-  // ── Pull due revisions if frequency allows ───────────
-  const includeRevisions = shouldIncludeRevisionToday(
-    revisionFrequency,
-    profile.customDays ?? null,
-    now,
-  )
-  const dueRevisions = includeRevisions ? await getDueRevisions(userId, today) : []
+  // Always fetch due revisions — the cap controls volume, not which days
+  const dueRevisions = await getDueRevisions(userId, today, profile.dailyRevisionCap ?? 2)
 
   const attemptedIds = await getAttemptedQuestionIds(userId)
   const candidates   = await getAvailableQuestions(profile.level, attemptedIds)
@@ -113,8 +100,8 @@ export default async function TodayPage() {
       clerkUserId: profile.clerkUserId,
       level,
       dailyTimeMinutes: profile.dailyTimeMinutes,
-      revisionFrequency,
-      customDays: profile.customDays ?? null,
+      dailyRevisionCap: profile.dailyRevisionCap ?? 2,
+      prepMonths: profile.prepMonths,
       focusPattern: profile.focusPattern ?? null,
     },
     availableQuestions: candidates

@@ -112,28 +112,27 @@ Step 3: Prep timeline
   When is your target interview date?
   [ 1 month ] [ 3 months ] [ 6 months ] [ 12 months ]
 
-Step 4: Revision frequency
-  How often do you want revision sessions?
-  [ Daily ] [ Alternate Days ] [ Weekends ] [ Custom ]
-  If Custom → Mon Tue Wed Thu Fri Sat Sun checkboxes
+Step 4: Revisions per session
+  How many revision questions per session?
+  [ 1 — light touch ] [ 2 — balanced ] [ 3 — intensive ]
+  Due revisions surface every day; this caps how many blend into each loop.
 
 Step 5: Summary + CTA
   "You're all set"
   Level: Beginner
   Daily time: 45 min
-  Revision: Weekends
+  Revisions per session: 2
   [ Start My Loop → ]
 ```
 
 **State shape:**
 ```ts
 {
-  step: number            // 1–5
+  step: number                // 1–5
   level: string | null
   dailyTimeMinutes: number | null
   prepMonths: number | null
-  revisionFrequency: string | null
-  customDays: number[]    // 0=Sun, 1=Mon, ..., 6=Sat
+  dailyRevisionCap: number | null  // 1 | 2 | 3
 }
 ```
 
@@ -143,7 +142,7 @@ async function handleSubmit() {
   const res = await fetch('/api/onboarding', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, dailyTimeMinutes, prepMonths, revisionFrequency, customDays }),
+    body: JSON.stringify({ level, dailyTimeMinutes, prepMonths, dailyRevisionCap }),
   })
   if (res.ok) router.push('/today')
 }
@@ -172,8 +171,7 @@ export async function POST(req: Request) {
     level: body.level,
     dailyTimeMinutes: body.dailyTimeMinutes,
     prepMonths: body.prepMonths,
-    revisionFrequency: body.revisionFrequency,
-    customDays: body.customDays ?? null,
+    dailyRevisionCap: body.dailyRevisionCap ?? 2,
   }).onConflictDoUpdate({
     target: userProfiles.clerkUserId,
     set: { level: body.level, dailyTimeMinutes: body.dailyTimeMinutes, ... }
@@ -228,5 +226,5 @@ const profile = await getOrRedirectToOnboarding(userId)
 - [ ] Completing all 5 onboarding steps → `user_profiles` row created in DB
 - [ ] Revisiting `/onboarding` after profile exists → redirected to `/today`
 - [ ] Visiting `/today` without a profile → redirected to `/onboarding`
-- [ ] Onboarding with "Custom" revision → `custom_days` array stored correctly
 - [ ] All onboarding steps are navigable (back button works, no data loss on step change)
+- [ ] `daily_revision_cap` stored correctly in `user_profiles` (1, 2, or 3)

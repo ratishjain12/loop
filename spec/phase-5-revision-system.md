@@ -1,10 +1,18 @@
 # Phase 5 — Revision System
 
-**Goal:** Questions due for revision are blended into the daily loop based on user's revision frequency. The Revision screen shows the upcoming revision queue.
+**Goal:** Questions due for revision are blended into every daily loop, capped by the user's `daily_revision_cap`. The Revision screen shows the upcoming queue.
 
 **Depends on:** Phase 4 complete (feedback recorded, `next_review_at` being set in DB)
 
 > **Clerk MCP:** Use `mcp__clerk__clerk_sdk_snippet({ slug: "server-auth-nextjs" })` for route handler auth patterns.
+
+---
+
+## Design rationale
+
+Revisions appear **every day** — there are no day-gating rules. The spaced repetition algorithm already decides when each question is due; blocking it to specific days of the week would delay reviews past the optimal window and break retention.
+
+What users control is **volume**: the `daily_revision_cap` field on their profile (1, 2, or 3) caps how many due revisions blend into each session. This respects cognitive load without corrupting the timing.
 
 ---
 
@@ -15,80 +23,47 @@
 **File:** `packages/db/src/queries/logs.ts` (addition)
 
 ```ts
-export async function getDueRevisions(clerkUserId: string, today: Date): Promise<Question[]> {
-  // SELECT q.* FROM user_question_log uql
-  // JOIN questions q ON q.id = uql.question_id
-  // WHERE uql.clerk_user_id = $1
-  //   AND uql.next_review_at <= $2
-  //   AND q.is_active = true
-  // ORDER BY uql.next_review_at ASC
-  // LIMIT 2  -- max 2 revisions per day
-}
+export async function getDueRevisions(clerkUserId: string, today: string): Promise<Question[]>
 ```
 
-Returns at most 2 questions (revision count cap enforced here, not in orchestrator).
+Logic:
+- Use `DISTINCT ON (question_id)` subquery to get the **most recent log entry** per question
+- Filter: `next_review_at <= today` AND `is_active = true`
+- Exclude questions already in today's loop
+- Order by `next_review_at ASC` (most overdue first)
+- Return full question metadata (join with `questions` table)
+
+No hard limit here — the orchestrator enforces the cap.
 
 ---
 
-### 5.2 Revision Frequency Check
-
-**File:** `packages/orchestrator/src/revision-scheduler.ts` (addition)
-
-```ts
-export function shouldIncludeRevisionToday(
-  revisionFrequency: RevisionFrequency,
-  customDays: number[] | null,
-  today: Date
-): boolean {
-  const dayOfWeek = today.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
-
-  switch (revisionFrequency) {
-    case 'daily':
-      return true
-    case 'alternate': {
-      // Count days since epoch; include revision on even days
-      const daysSinceEpoch = Math.floor(today.getTime() / (1000 * 60 * 60 * 24))
-      return daysSinceEpoch % 2 === 0
-    }
-    case 'weekend':
-      return dayOfWeek === 0 || dayOfWeek === 6
-    case 'custom':
-      return customDays?.includes(dayOfWeek) ?? false
-  }
-}
-```
-
----
-
-### 5.3 Loop Generator Update
+### 5.2 Loop Generator Update
 
 **File:** `packages/orchestrator/src/loop-generator.ts`
 
-The `revisionQuestions` parameter was already typed in Phase 3. Now it gets populated.
+`revisionQuestions` parameter was already typed in Phase 3. Now it gets populated from `getDueRevisions`.
 
-In `GET /api/loop/generate`:
-1. Check `shouldIncludeRevisionToday(profile.revisionFrequency, profile.customDays, today)`
-2. If true → call `getDueRevisions(userId, today)` → pass result as `revisionQuestions`
-3. If false → pass `[]`
+The revision slot is: `Math.min(profile.dailyRevisionCap, Math.ceil(hardCap / 2))`
 
-Revision questions are prepended to the final question list (appear first in the loop).
+This ensures:
+- In normal mode: up to `dailyRevisionCap` revisions (1–3), never more than half the loop
+- In recovery mode: revision slot shrinks proportionally with the hard cap
 
-The total question count respects the daily time cap: if 2 revisions are included, reduce new questions by 2 to keep total within `dailyTimeMinutes`.
+Revision questions are prepended to the final list (appear first in the loop).
+
+In `GET /api/loop/generate` and `app/(app)/today/page.tsx`:
+```ts
+// Always fetch due revisions — cap controls volume, not which days
+const dueRevisions = await getDueRevisions(userId, today)
+```
 
 ---
 
-### 5.4 `GET /api/revision`
+### 5.3 `GET /api/revision`
 
 **File:** `apps/web/app/api/revision/route.ts`
 
 Returns the user's upcoming revision queue for the next 7 days.
-
-**Logic:**
-1. `await auth()` → get `userId`
-2. Query `user_question_log` for rows where `next_review_at` is between today and today+7
-3. Join with `questions` table for metadata
-4. Group by `next_review_at` date
-5. Return sorted by date ASC
 
 **Response:**
 ```ts
@@ -109,8 +84,7 @@ Returns the user's upcoming revision queue for the next 7 days.
 
 **Date label logic:**
 ```ts
-function getDateLabel(date: Date, today: Date): string {
-  const diff = differenceInDays(date, today)
+function getDateLabel(diff: number): string {
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Tomorrow'
   if (diff <= 6) return `In ${diff} days`
@@ -120,16 +94,17 @@ function getDateLabel(date: Date, today: Date): string {
 
 ---
 
-### 5.5 Revision Screen
+### 5.4 Revision Screen
 
 **File:** `apps/web/app/(app)/revision/page.tsx`
 
-Server component — calls `/api/revision` (or the DB query directly).
+Server component — calls `getDueRevisions` and the 7-day lookahead query directly.
 
 Layout:
 ```
 ┌─────────────────────────────────────────────┐
-│  Upcoming Revisions                         │
+│  Revision Queue                             │
+│  Questions scheduled for review             │
 ├─────────────────────────────────────────────┤
 │  Today                                      │
 │  ┌───────────────────────────────────────┐  │
@@ -142,12 +117,6 @@ Layout:
 │  │ Valid Parentheses                Easy │  │
 │  │ Stack                   [Needed Hint] │  │
 │  └───────────────────────────────────────┘  │
-│                                             │
-│  In 3 days                                  │
-│  ┌───────────────────────────────────────┐  │
-│  │ Binary Search                  Medium │  │
-│  │ Binary Search                   [Easy]│  │
-│  └───────────────────────────────────────┘  │
 ├─────────────────────────────────────────────┤
 │  ┌ Empty state ──────────────────────────┐  │
 │  │  No revisions scheduled               │  │
@@ -156,32 +125,29 @@ Layout:
 └─────────────────────────────────────────────┘
 ```
 
-- Each question card shows: title, difficulty badge, pattern, last feedback badge
-- Feedback badge colors: green (easy), yellow (needed_hint), orange (struggled), red (couldnt_solve), gray (revisit_later)
-- No "Mark Done" on revision screen — revisions are handled within Today's Loop
+- Each question card: title, difficulty badge, pattern, last feedback badge
+- No "Mark Done" — revisions are completed within Today's Loop
 
 ---
 
-### 5.6 Visual Distinction in Today's Loop
+### 5.5 Visual Distinction in Today's Loop
 
 **File:** `apps/web/components/question-card.tsx`
 
 When `isRevision = true`:
-- Show a small "Revision" badge in the top-right of the card
-- Card background: very subtle tint (e.g. `bg-blue-50/50`) to distinguish from new questions
-- Revision cards always appear first in the list (handled by loop generator ordering)
+- Show a small purple "Revision" badge in the metadata row
+- Revision cards always appear first in the list (loop generator ordering)
 
 ---
 
 ## Acceptance Criteria
 
-- [ ] A question marked `struggled` yesterday appears in today's loop as a revision card (with "Revision" badge)
+- [ ] A question marked `struggled` yesterday appears in today's loop as a revision card
 - [ ] A question marked `easy` does not reappear for 7 days
-- [ ] User with `weekend` revision frequency: revision questions do NOT appear on weekdays
-- [ ] User with `daily` revision frequency: revision questions appear every day (if due)
+- [ ] Revisions appear every day regardless of day of week
+- [ ] User with `dailyRevisionCap = 1` sees at most 1 revision per session
+- [ ] User with `dailyRevisionCap = 3` sees at most 3 revisions per session (or half the hard cap, whichever is lower)
 - [ ] Revision screen shows grouped upcoming revisions with correct date labels
 - [ ] Revision screen shows empty state when no revisions are scheduled
-- [ ] Max 2 revision questions per daily loop (even if 5 are due, only 2 shown)
 - [ ] Loop generates correctly when no revisions are due (no errors, just new questions)
-- [ ] Last feedback badge shown on revision cards (e.g. "Struggled", "Easy")
 - [ ] Total estimated time on Today's Loop includes revision question times

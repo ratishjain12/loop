@@ -1,2 +1,2 @@
-// Implemented in Phase 6
-export {}
+export { generateHint } from './hint'
+export { generateExplanation } from './explain'
