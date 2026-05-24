@@ -507,8 +507,52 @@ Loop does not need its own coding platform in V1.
 - contests
 - discussion forums
 - social features
-- AI tutoring
-- AI-generated questions
+- AI tutoring / AI-generated questions (AI hints and pattern explanations are in scope — full tutoring is not)
+
+---
+
+# Post-V1 Roadmap
+
+Features to build after the core habit engine is complete and shipped.
+
+---
+
+## Interview Countdown Mode
+
+Users rarely practice in a vacuum — they have a deadline.
+
+The flow:
+
+- User inputs target company + interview date at onboarding or in settings
+- Loop generates a day-by-day plan: which patterns to cover, in what order, what milestones to hit
+- Today's Loop adapts to the countdown — if behind, pace increases; if ahead, revision-heavy days fill the gap
+- A countdown banner in the nav shows days remaining
+
+Why it matters: makes the app indispensable from the moment a user sets a date until interview day. Highest-retention feature possible.
+
+---
+
+## Readiness Score
+
+After 2+ weeks of data accumulates from feedback, show a single interview readiness signal.
+
+- Score from 0–100 derived from: pattern coverage, feedback distribution, revision performance, streak
+- Broken down by pattern: "Strong: Trees, Graphs | Weak: DP, Backtracking | Not started: Trie"
+- Gives users a clear picture of where they stand without self-analysis
+- Lives on the Progress screen
+
+Why it matters: this is the "aha moment" for power users — the score becomes the thing they want to improve.
+
+---
+
+## Company Focus Mode
+
+- User selects a target company (Google, Amazon, Meta, Microsoft, Apple)
+- Loop biases question selection toward patterns that company favors
+  - Amazon: arrays, trees, OOP design
+  - Google: graphs, DP, string manipulation
+  - Meta: trees, dynamic programming, recursion
+- Low implementation cost, high perceived value for users with a specific target
 
 ---
 
@@ -570,11 +614,10 @@ The ideal experience:
 
 Loop can eventually evolve into:
 
-- interview readiness systems
 - adaptive learning engines
-- system design preparation
-- backend engineering tracks
 - personalized concept mastery systems
+- backend engineering tracks
+- system design preparation (TBD — decision deferred until after v1 ships; strong candidate for the first major expansion)
 
 But the foundation remains:
 
