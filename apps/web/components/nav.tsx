@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { UserButton, useUser } from '@clerk/nextjs'
-import { Zap, RotateCcw, TrendingUp, Sun, Moon } from 'lucide-react'
+import { Zap, RotateCcw, TrendingUp, Settings, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -12,12 +12,16 @@ const links = [
   { href: '/today',    label: "Today's Loop", icon: Zap },
   { href: '/revision', label: 'Revision',      icon: RotateCcw },
   { href: '/progress', label: 'Progress',      icon: TrendingUp },
+  { href: '/settings', label: 'Settings',      icon: Settings },
 ]
 
 function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
+  // Mount gate to avoid a theme hydration mismatch — the setState-in-effect here
+  // is the intended next-themes SSR pattern, not a cascading-render bug.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setMounted(true), [])
   if (!mounted) return <div className="w-8 h-8" />
 
@@ -78,7 +82,7 @@ function UserProfile() {
   )
 }
 
-export function Nav() {
+export function Nav({ streak = 0 }: { streak?: number }) {
   const pathname = usePathname()
 
   return (
@@ -114,6 +118,14 @@ export function Nav() {
                 )}
                 <Icon size={15} strokeWidth={active ? 2 : 1.75} className="shrink-0" />
                 {label}
+                {href === '/progress' && streak > 0 && (
+                  <span
+                    className="ml-auto inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium tabular-nums"
+                    style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}
+                  >
+                    {streak}🔥
+                  </span>
+                )}
               </Link>
             )
           })}
@@ -146,7 +158,17 @@ export function Nav() {
                 active ? 'text-foreground' : 'text-muted-foreground',
               )}
             >
-              <Icon size={18} strokeWidth={active ? 2 : 1.75} />
+              <span className="relative">
+                <Icon size={18} strokeWidth={active ? 2 : 1.75} />
+                {href === '/progress' && streak > 0 && (
+                  <span
+                    className="absolute -right-2 -top-1.5 rounded-full px-1 text-[8px] font-semibold tabular-nums leading-tight"
+                    style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}
+                  >
+                    {streak}
+                  </span>
+                )}
+              </span>
               {label}
             </Link>
           )

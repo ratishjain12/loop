@@ -29,6 +29,20 @@
       "when": 1779633602611,
       "tag": "0003_futuristic_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1783081962779,
+      "tag": "0004_steady_the_captain",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1783082723500,
+      "tag": "0005_nosy_thundra",
+      "breakpoints": true
     }
   ]
 }

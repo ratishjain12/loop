@@ -6,6 +6,7 @@ export const userProfiles = pgTable('user_profiles', {
   dailyTimeMinutes: integer('daily_time_minutes').notNull(),
   prepMonths: integer('prep_months').notNull(),
   dailyRevisionCap: integer('daily_revision_cap').notNull().default(2),
+  targetDate: date('target_date'),                        // optional interview date; overrides prep_months for pacing
   focusPattern: text('focus_pattern'),
   adaptiveUntil: date('adaptive_until'),
   createdAt: timestamp('created_at').defaultNow(),
@@ -31,6 +32,8 @@ export const userQuestionLog = pgTable('user_question_log', {
   attemptedAt: timestamp('attempted_at').defaultNow(),
   feedback: text('feedback').notNull(),
   nextReviewAt: date('next_review_at').notNull(),
+  reviewStage: integer('review_stage').notNull().default(0), // consecutive-easy mastery streak
+  mastered: boolean('mastered').notNull().default(false),    // retired from the revision queue
 })
 
 export const userHints = pgTable('user_hints', {

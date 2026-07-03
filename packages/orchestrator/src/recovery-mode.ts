@@ -11,6 +11,18 @@ export function detectRecovery(
 
   const todayNorm = new Date(today)
   todayNorm.setHours(0, 0, 0, 0)
+
+  // Adaptive window: a 7+ day gap earlier set adaptive_until into the future.
+  // While it lasts, load is capped (2/day) regardless of recent activity — this
+  // takes precedence over the missed-day tiers so momentum rebuilds gently.
+  if (adaptiveUntil) {
+    const until = new Date(adaptiveUntil)
+    until.setHours(0, 0, 0, 0)
+    if (todayNorm <= until) {
+      return { isRecovery: false, missedDays: 0, maxQuestions: 2, isAdaptive: true }
+    }
+  }
+
   const lastNorm = new Date(lastLoopDate)
   lastNorm.setHours(0, 0, 0, 0)
 
@@ -20,15 +32,15 @@ export function detectRecovery(
   )
   const missedDays = Math.max(0, diffDays - 1)
 
-  const isAdaptive = adaptiveUntil
-    ? todayNorm <= new Date(adaptiveUntil)
-    : false
-
   if (missedDays <= 1) {
-    return { isRecovery: false, missedDays, maxQuestions: Infinity, isAdaptive }
+    return { isRecovery: false, missedDays, maxQuestions: Infinity, isAdaptive: false }
   }
   if (missedDays <= 3) {
-    return { isRecovery: true, missedDays, maxQuestions: 2, isAdaptive }
+    return { isRecovery: true, missedDays, maxQuestions: 2, isAdaptive: false }
   }
-  return { isRecovery: true, missedDays, maxQuestions: 1, isAdaptive }
+  if (missedDays <= 6) {
+    return { isRecovery: true, missedDays, maxQuestions: 1, isAdaptive: false }
+  }
+  // 7+ days missed: deep recovery, and trigger the adaptive window going forward
+  return { isRecovery: true, missedDays, maxQuestions: 1, isAdaptive: true }
 }

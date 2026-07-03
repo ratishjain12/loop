@@ -11,6 +11,7 @@ interface FormState {
   dailyTimeMinutes: number | null
   prepMonths: number | null
   dailyRevisionCap: number | null
+  targetDate: string | null
 }
 
 const LEVEL_OPTIONS: { value: Level; label: string; description: string }[] = [
@@ -45,6 +46,7 @@ export default function OnboardingPage() {
     dailyTimeMinutes: null,
     prepMonths: null,
     dailyRevisionCap: null,
+    targetDate: null,
   })
 
   const canAdvance = () => {
@@ -66,6 +68,7 @@ export default function OnboardingPage() {
           dailyTimeMinutes: form.dailyTimeMinutes,
           prepMonths: form.prepMonths,
           dailyRevisionCap: form.dailyRevisionCap,
+          targetDate: form.targetDate,
         }),
       })
       router.push('/today')
@@ -116,7 +119,7 @@ export default function OnboardingPage() {
       {/* Step 1 — Experience Level */}
       {step === 1 && (
         <div className="flex flex-col flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">What's your level?</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">What&apos;s your level?</h1>
           <p className="text-sm text-neutral-500 mb-8">This shapes which questions appear in your daily loop.</p>
           <div className="flex flex-col gap-3">
             {LEVEL_OPTIONS.map((opt) => (
@@ -167,7 +170,7 @@ export default function OnboardingPage() {
       {/* Step 3 — Prep Timeline */}
       {step === 3 && (
         <div className="flex flex-col flex-1">
-          <h1 className="text-2xl font-semibold tracking-tight mb-1">When's your target?</h1>
+          <h1 className="text-2xl font-semibold tracking-tight mb-1">When&apos;s your target?</h1>
           <p className="text-sm text-neutral-500 mb-8">Sets the pace — tighter timelines prioritise high-importance questions.</p>
           <div className="grid grid-cols-2 gap-3">
             {PREP_OPTIONS.map((opt) => (
@@ -187,6 +190,17 @@ export default function OnboardingPage() {
                 </div>
               </button>
             ))}
+          </div>
+          <div className="flex flex-col gap-2 mt-6">
+            <label className="text-xs text-neutral-500">
+              Have a specific interview date? (optional — sets a precise pace)
+            </label>
+            <input
+              type="date"
+              value={form.targetDate ?? ''}
+              onChange={(e) => setForm((f) => ({ ...f, targetDate: e.target.value || null }))}
+              className="rounded-md border border-border bg-background px-3 py-2 text-sm w-fit"
+            />
           </div>
         </div>
       )}
@@ -222,7 +236,7 @@ export default function OnboardingPage() {
       {step === 5 && (
         <div className="flex flex-col flex-1">
           <h1 className="text-2xl font-semibold tracking-tight mb-1">Your Loop, set up.</h1>
-          <p className="text-sm text-neutral-500 mb-8">Here's what we've configured — you can change these later.</p>
+          <p className="text-sm text-neutral-500 mb-8">Here&apos;s what we&apos;ve configured — you can change these later.</p>
           <div className="border border-border rounded-lg divide-y divide-border mb-8">
             <div className="flex items-center justify-between px-5 py-4">
               <span className="text-sm text-neutral-500">Level</span>

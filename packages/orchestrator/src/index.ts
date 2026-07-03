@@ -1,4 +1,5 @@
 export * from './types'
+export * from './syllabus'
 export * from './loop-generator'
 export * from './revision-scheduler'
 export * from './recovery-mode'
