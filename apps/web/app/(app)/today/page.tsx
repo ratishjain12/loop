@@ -6,10 +6,10 @@ import { Trophy } from 'lucide-react'
 import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
-import { getDueRevisions } from '@loop/db/queries/logs'
-import { detectRecovery, generateLoop } from '@loop/orchestrator'
+import { getDueRevisions, getSolvedByPattern, applyMemoryDecay } from '@loop/db/queries/logs'
+import { detectRecovery, generateLoop, masteryDecaySteps } from '@loop/orchestrator'
 import { TodayLoop } from '@/components/today-loop'
-import { formatLocalDate } from '@/lib/date'
+import { formatLocalDate, daysRemaining } from '@/lib/date'
 
 export const metadata: Metadata = { title: "Today's Loop | Loop" }
 
@@ -85,6 +85,22 @@ export default async function TodayPage() {
     profile.adaptiveUntil ? new Date(profile.adaptiveUntil) : null,
   )
 
+  // A fresh 7+ day gap triggers adaptive mode: cap load for the next 5 days.
+  // Guarded on null/past so the ongoing adaptive window isn't extended each day.
+  if (recovery.isAdaptive && (!profile.adaptiveUntil || profile.adaptiveUntil < today)) {
+    const adaptiveEnd = new Date(now)
+    adaptiveEnd.setDate(adaptiveEnd.getDate() + 5)
+    await db
+      .update(userProfiles)
+      .set({ adaptiveUntil: formatLocalDate(adaptiveEnd) })
+      .where(eq(userProfiles.clerkUserId, userId))
+  }
+
+  // After a long absence, decay mastery so forgotten material resurfaces (runs
+  // once on the return day — the next day's gap is small). Must precede the
+  // revision + progress fetches below so they reflect the decayed state.
+  await applyMemoryDecay(userId, today, masteryDecaySteps(recovery.missedDays))
+
   const level: Level = (VALID_LEVELS as readonly string[]).includes(profile.level)
     ? (profile.level as Level)
     : 'intermediate'
@@ -94,6 +110,11 @@ export default async function TodayPage() {
 
   const attemptedIds = await getAttemptedQuestionIds(userId)
   const candidates   = await getAvailableQuestions(profile.level, attemptedIds)
+
+  // Timeline-driven inputs: solved-per-pattern progress + days until the target
+  const solvedByPattern = await getSolvedByPattern(userId)
+  const patternProgress = Object.fromEntries(solvedByPattern.map((p) => [p.pattern, p.count]))
+  const remaining = daysRemaining(profile.targetDate ?? null, profile.prepMonths, now)
 
   const selected = generateLoop({
     profile: {
@@ -128,6 +149,8 @@ export default async function TodayPage() {
     })),
     recovery,
     today: now,
+    patternProgress,
+    daysRemaining: remaining,
   })
 
   // ── All questions exhausted ──────────────────────────

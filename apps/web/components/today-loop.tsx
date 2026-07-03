@@ -62,8 +62,18 @@ export function TodayLoop({ loop, questions, revisionIds, recovery, formattedDat
   return (
     <div className="flex flex-col gap-6">
 
-      {/* Recovery banner */}
-      {recovery?.isRecovery && (
+      {/* Recovery / adaptive banner — adaptive takes precedence (it implies a longer break) */}
+      {recovery?.isAdaptive ? (
+        <div
+          className="flex items-start gap-3 rounded-lg border px-4 py-3"
+          style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)' }}
+        >
+          <AlertTriangle size={15} className="mt-0.5 shrink-0" style={{ color: '#f59e0b' }} />
+          <p className="text-sm" style={{ color: '#f59e0b' }}>
+            Good to have you back. Starting with shorter sessions for a few days.
+          </p>
+        </div>
+      ) : recovery?.isRecovery ? (
         <div
           className="flex items-start gap-3 rounded-lg border px-4 py-3"
           style={{ borderColor: 'rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.05)' }}
@@ -73,7 +83,7 @@ export function TodayLoop({ loop, questions, revisionIds, recovery, formattedDat
             Welcome back — keeping it light today to rebuild momentum.
           </p>
         </div>
-      )}
+      ) : null}
 
       {/* Header */}
       <div className="flex flex-col gap-1">

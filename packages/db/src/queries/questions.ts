@@ -16,6 +16,16 @@ export async function getAttemptedQuestionIds(clerkUserId: string): Promise<stri
   return logs.map((l) => l.questionId).filter((id): id is string => id !== null)
 }
 
+/** Distinct primary patterns present in the active question bank, alphabetical. */
+export async function getAllPatterns(): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ pattern: questions.primaryPattern })
+    .from(questions)
+    .where(eq(questions.isActive, true))
+    .orderBy(questions.primaryPattern)
+  return rows.map((r) => r.pattern)
+}
+
 export async function getAvailableQuestions(level: string, excludeIds: string[]) {
   const difficulties = DIFFICULTY_BY_LEVEL[level] ?? DIFFICULTY_BY_LEVEL.intermediate
 

@@ -7,6 +7,8 @@ export async function insertQuestionLog(params: {
   questionId: string
   feedback: string
   nextReviewAt: string
+  reviewStage?: number
+  mastered?: boolean
 }) {
   const [log] = await db
     .insert(userQuestionLog)
@@ -15,9 +17,41 @@ export async function insertQuestionLog(params: {
       questionId: params.questionId,
       feedback: params.feedback,
       nextReviewAt: params.nextReviewAt,
+      reviewStage: params.reviewStage ?? 0,
+      mastered: params.mastered ?? false,
     })
     .returning()
   return log
+}
+
+/**
+ * Decay a returning user's spaced-repetition state after a long absence. Operates
+ * on the latest log per question: knocks the mastery streak down by `steps`, and
+ * un-retires any mastered question (pulling it due today so it resurfaces). Models
+ * forgetting — what you aced months ago should be re-checked, not hidden forever.
+ * No-op when steps <= 0. Returns how many questions were affected.
+ */
+export async function applyMemoryDecay(
+  clerkUserId: string,
+  todayStr: string,
+  steps: number,
+): Promise<{ affected: number }> {
+  if (steps <= 0) return { affected: 0 }
+  const rows = await db.execute<{ id: string }>(sql`
+    UPDATE user_question_log
+    SET review_stage = GREATEST(0, review_stage - ${steps}),
+        next_review_at = CASE WHEN mastered THEN ${todayStr}::date ELSE next_review_at END,
+        mastered = false
+    WHERE id IN (
+      SELECT DISTINCT ON (question_id) id
+      FROM user_question_log
+      WHERE clerk_user_id = ${clerkUserId}
+      ORDER BY question_id, attempted_at DESC
+    )
+    AND (mastered = true OR review_stage > 0)
+    RETURNING id
+  `)
+  return { affected: rows.length }
 }
 
 export async function getLatestQuestionLog(clerkUserId: string, questionId: string) {
@@ -74,7 +108,7 @@ export async function getDueRevisions(
       SELECT DISTINCT ON (uql.question_id)
         q.id, q.title, q.link, q.difficulty, q.primary_pattern,
         q.secondary_patterns, q.importance_score, q.estimated_minutes,
-        uql.feedback, uql.next_review_at
+        uql.feedback, uql.next_review_at, uql.mastered
       FROM user_question_log uql
       JOIN questions q ON q.id = uql.question_id
       WHERE uql.clerk_user_id = ${clerkUserId}
@@ -82,6 +116,7 @@ export async function getDueRevisions(
       ORDER BY uql.question_id, uql.attempted_at DESC
     ) latest
     WHERE latest.next_review_at <= ${todayStr}
+      AND latest.mastered = false
     ORDER BY latest.next_review_at ASC
     LIMIT ${limit}
   `)
@@ -132,7 +167,7 @@ export async function getUpcomingRevisions(
     FROM (
       SELECT DISTINCT ON (uql.question_id)
         q.id, q.title, q.difficulty, q.primary_pattern,
-        uql.feedback, uql.next_review_at
+        uql.feedback, uql.next_review_at, uql.mastered
       FROM user_question_log uql
       JOIN questions q ON q.id = uql.question_id
       WHERE uql.clerk_user_id = ${clerkUserId}
@@ -141,6 +176,7 @@ export async function getUpcomingRevisions(
     ) latest
     WHERE latest.next_review_at >= ${todayStr}
       AND latest.next_review_at <= ${plusSevenStr}
+      AND latest.mastered = false
     ORDER BY latest.next_review_at ASC
   `)
 
@@ -152,4 +188,23 @@ export async function getUpcomingRevisions(
     lastFeedback: r.feedback,
     nextReviewAt: r.next_review_at,
   }))
+}
+
+/**
+ * Count of distinct questions solved per primary pattern, most-solved first.
+ * Distinct (not per-attempt) so revisions don't inflate the totals — summing
+ * the counts yields the true number of unique questions solved.
+ */
+export async function getSolvedByPattern(
+  clerkUserId: string,
+): Promise<{ pattern: string; count: number }[]> {
+  const rows = await db.execute<{ pattern: string; count: number }>(sql`
+    SELECT q.primary_pattern AS pattern, COUNT(DISTINCT uql.question_id)::int AS count
+    FROM user_question_log uql
+    JOIN questions q ON q.id = uql.question_id
+    WHERE uql.clerk_user_id = ${clerkUserId}
+    GROUP BY q.primary_pattern
+    ORDER BY count DESC, q.primary_pattern ASC
+  `)
+  return rows.map((r) => ({ pattern: r.pattern, count: r.count }))
 }

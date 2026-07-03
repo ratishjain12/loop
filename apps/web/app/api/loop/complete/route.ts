@@ -1,8 +1,8 @@
 import { auth } from '@clerk/nextjs/server'
 import { NextResponse } from 'next/server'
 import { getTodaysLoop, markQuestionComplete } from '@loop/db/queries/loops'
-import { insertQuestionLog } from '@loop/db/queries/logs'
-import { getNextReviewDate } from '@loop/orchestrator'
+import { insertQuestionLog, getLatestQuestionLog } from '@loop/db/queries/logs'
+import { scheduleReview } from '@loop/orchestrator'
 import type { FeedbackType } from '@loop/orchestrator'
 import { formatLocalDate } from '@/lib/date'
 
@@ -56,7 +56,10 @@ export async function POST(req: Request) {
   // first concurrent request updates the row; wasFirstCompletion gates the log insert.
   const { loopComplete, wasFirstCompletion } = await markQuestionComplete(userId, today, questionId)
 
-  const nextReviewAt = formatLocalDate(getNextReviewDate(typedFeedback, now))
+  // Escalate the spaced-repetition schedule from the question's prior mastery streak.
+  const previous = await getLatestQuestionLog(userId, questionId)
+  const { nextReviewDate, stage, mastered } = scheduleReview(typedFeedback, previous?.reviewStage ?? 0, now)
+  const nextReviewAt = formatLocalDate(nextReviewDate)
 
   if (wasFirstCompletion) {
     await insertQuestionLog({
@@ -64,8 +67,10 @@ export async function POST(req: Request) {
       questionId,
       feedback: typedFeedback,
       nextReviewAt,
+      reviewStage: stage,
+      mastered,
     })
   }
 
-  return NextResponse.json({ nextReviewAt, loopComplete })
+  return NextResponse.json({ nextReviewAt, loopComplete, mastered })
 }

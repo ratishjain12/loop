@@ -3,10 +3,10 @@ import { NextResponse } from 'next/server'
 import { db, userProfiles, questions as questionsTable } from '@loop/db'
 import { getTodaysLoop, getLastLoopDate, insertDailyLoop } from '@loop/db/queries/loops'
 import { getAttemptedQuestionIds, getAvailableQuestions } from '@loop/db/queries/questions'
-import { getDueRevisions } from '@loop/db/queries/logs'
-import { detectRecovery, generateLoop } from '@loop/orchestrator'
+import { getDueRevisions, getSolvedByPattern, applyMemoryDecay } from '@loop/db/queries/logs'
+import { detectRecovery, generateLoop, masteryDecaySteps } from '@loop/orchestrator'
 import { eq, inArray } from 'drizzle-orm'
-import { formatLocalDate } from '@/lib/date'
+import { formatLocalDate, daysRemaining } from '@/lib/date'
 
 export async function GET() {
   const { userId } = await auth()
@@ -41,6 +41,21 @@ export async function GET() {
     profile.adaptiveUntil ? new Date(profile.adaptiveUntil) : null,
   )
 
+  // A fresh 7+ day gap triggers adaptive mode: cap load for the next 5 days.
+  // Guarded on null/past so the ongoing adaptive window isn't extended each day.
+  if (recovery.isAdaptive && (!profile.adaptiveUntil || profile.adaptiveUntil < today)) {
+    const adaptiveEnd = new Date()
+    adaptiveEnd.setDate(adaptiveEnd.getDate() + 5)
+    await db
+      .update(userProfiles)
+      .set({ adaptiveUntil: formatLocalDate(adaptiveEnd) })
+      .where(eq(userProfiles.clerkUserId, userId))
+  }
+
+  // After a long absence, decay mastery so forgotten material resurfaces (runs
+  // once on the return day). Must precede the revision + progress fetches below.
+  await applyMemoryDecay(userId, today, masteryDecaySteps(recovery.missedDays))
+
   // Build candidate pool
   const attemptedIds = await getAttemptedQuestionIds(userId)
   const candidates = await getAvailableQuestions(profile.level, attemptedIds)
@@ -58,6 +73,11 @@ export async function GET() {
   // Always fetch due revisions — the cap controls how many appear, not which days
   const now = new Date()
   const dueRevisions = await getDueRevisions(userId, today, profile.dailyRevisionCap ?? 2)
+
+  // Timeline-driven inputs: solved-per-pattern progress + days until the target
+  const solvedByPattern = await getSolvedByPattern(userId)
+  const patternProgress = Object.fromEntries(solvedByPattern.map((p) => [p.pattern, p.count]))
+  const remaining = daysRemaining(profile.targetDate ?? null, profile.prepMonths, now)
 
   // Generate the loop
   const selected = generateLoop({
@@ -93,6 +113,8 @@ export async function GET() {
     })),
     recovery,
     today: now,
+    patternProgress,
+    daysRemaining: remaining,
   })
 
   if (selected.length === 0) {

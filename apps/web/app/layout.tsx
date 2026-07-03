@@ -12,6 +12,11 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: 'Loop — Structured DSA Practice',
   description: 'Daily DSA practice that keeps you consistent. No decision fatigue, just focused learning.',
+  openGraph: {
+    title: 'Loop',
+    description: 'Structured DSA practice that keeps you consistent.',
+    type: 'website',
+  },
 }
 
 export default function RootLayout({
