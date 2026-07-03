@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Trophy, AlertTriangle, Clock, Zap } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
 import { QuestionCard } from '@/components/question-card'
-import type { FeedbackType } from '@loop/orchestrator'
 
 interface Question {
   id: string
@@ -48,11 +47,6 @@ export function TodayLoop({ loop, questions, revisionIds, recovery, formattedDat
   const totalCount = questions.length
   const totalMinutes = questions.reduce((sum, q) => sum + q.estimatedMinutes, 0)
   const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
-
-  function handleLoopComplete(loopComplete: boolean) {
-    // Optimistically reflect the newly completed question via re-render from QuestionCard
-    if (loopComplete) setIsLoopComplete(true)
-  }
 
   function handleQuestionComplete(questionId: string, loopComplete: boolean) {
     setCompletedIds((prev) => new Set([...prev, questionId]))
