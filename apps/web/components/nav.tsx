@@ -44,7 +44,6 @@ function UserProfile() {
 
   const name = user?.fullName ?? user?.firstName ?? 'Account'
   const email = user?.primaryEmailAddress?.emailAddress ?? ''
-  const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
 
   return (
     <div className="flex items-center gap-3 min-w-0">
